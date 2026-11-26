@@ -22,6 +22,9 @@ from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
+BASE_DIR = Path(__file__).resolve().parent
+EXCUSE_UPLOAD_DIR = BASE_DIR / "uploads" / "excuses"
+
 
 # ---------------------------------------------------------------------------
 # App setup

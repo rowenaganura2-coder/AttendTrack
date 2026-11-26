@@ -16,10 +16,6 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKUP_DIR = os.path.join(CURRENT_DIR, "backups")
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
-DRIVE_BACKUP_FOLDER_ID = os.environ.get(
-    "GOOGLE_DRIVE_FOLDER_ID", "1oruu5Maem4VT7rMVU9WSqWPXJx05dPS4"
-)
-
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
 
@@ -80,6 +76,26 @@ def get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
+def get_or_create_backup_folder(service):
+    """Finds or creates an 'AttendTrack Backups' folder owned by this OAuth token."""
+    query_str = (
+        "name = 'AttendTrack Backups' and "
+        "mimeType = 'application/vnd.google-apps.folder' and "
+        "trashed = false"
+    )
+    results = service.files().list(q=query_str, fields="files(id, name)", pageSize=1).execute()
+    files = results.get("files", [])
+    if files:
+        return files[0]["id"]
+
+    folder_metadata = {
+        "name": "AttendTrack Backups",
+        "mimeType": "application/vnd.google-apps.folder",
+    }
+    folder = service.files().create(body=folder_metadata, fields="id").execute()
+    return folder.get("id")
+
+
 def _escape_sql_value(conn, val):
     if val is None:
         return "NULL"
@@ -124,9 +140,10 @@ def create_sql_dump(conn, dest_path):
 def upload_to_drive(file_path, filename):
     """Uploads the zip file into the AttendTrack Backups Google Drive folder."""
     service = get_drive_service()
+    folder_id = get_or_create_backup_folder(service)
     file_metadata = {
         "name": filename,
-        "parents": [DRIVE_BACKUP_FOLDER_ID],
+        "parents": [folder_id],
     }
     media = MediaFileUpload(file_path, mimetype="application/zip", resumable=True)
     uploaded = service.files().create(

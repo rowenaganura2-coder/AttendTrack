@@ -21,7 +21,8 @@ from flask.json.provider import DefaultJSONProvider
 from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
-
+from werkzeug.utils import secure_filename
+from backup_service import trigger_async_backup
 BASE_DIR = Path(__file__).resolve().parent
 EXCUSE_UPLOAD_DIR = BASE_DIR / "uploads" / "excuses"
 
@@ -805,6 +806,7 @@ def start_session(cid):
         raise
     finally:
         conn.close()
+        trigger_async_backup()
     return jsonify(ok=True, session_id=session_id)
 
 
@@ -875,6 +877,7 @@ def rotate_qr(sid):
         return err("This session has ended.", 409)
     secret = new_qr_secret()
     execute("UPDATE sessions SET qr_secret=%s, qr_issued_at=NOW() WHERE id=%s", (secret, sid))
+    trigger_async_backup()
     return jsonify(ok=True, qr_secret=secret, qr_path=f"/scan?s={secret}")
 
 

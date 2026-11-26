@@ -601,7 +601,12 @@ def get_class(cid):
         one=True,
     )
     attendance = query(
-        """SELECT s.id AS session_id, s.session_date, s.started_at, s.is_active, a.status, a.marked_at,
+        """SELECT s.id AS session_id, s.session_date, s.started_at, s.is_active,
+                  CASE
+                    WHEN a.status IS NULL AND s.is_active=1 AND s.session_date>=CURDATE() THEN NULL
+                    ELSE COALESCE(a.status,'Absent')
+                  END AS status,
+                  a.marked_at,
                   x.id AS excuse_id, x.status AS excuse_status
            FROM sessions s
            LEFT JOIN attendance_logs a ON a.session_id=s.id AND a.student_user_id=%s
@@ -968,7 +973,7 @@ def submit_excuse(sid):
         (sid, uid()),
         one=True,
     )
-    if not attendance or attendance["status"] != "Absent":
+    if attendance and attendance["status"] != "Absent":
         return err("An excuse request is only available for an absent session.", 409)
     reason = (request.form.get("reason") or "").strip()
     upload = request.files.get("document")
@@ -1001,6 +1006,13 @@ def submit_excuse(sid):
     EXCUSE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     upload.save(EXCUSE_UPLOAD_DIR / filename)
     try:
+        if not attendance:
+            execute(
+                """INSERT IGNORE INTO attendance_logs
+                   (session_id, student_user_id, status, marked_by)
+                   VALUES (%s,%s,'Absent','instructor')""",
+                (sid, uid()),
+            )
         execute(
             """INSERT INTO excuse_requests
                (class_id, session_id, student_user_id, reason, file_path)

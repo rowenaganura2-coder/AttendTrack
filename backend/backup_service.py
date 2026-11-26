@@ -148,6 +148,17 @@ def run_full_backup_task():
     try:
         conn = get_db_connection()
         with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS system_backups (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    filename VARCHAR(255) NOT NULL,
+                    file_size_kb INT NOT NULL DEFAULT 0,
+                    drive_file_id VARCHAR(255) NULL,
+                    status ENUM('Pending','Success','Failed') NOT NULL DEFAULT 'Pending',
+                    error_message TEXT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB
+            """)
             cur.execute(
                 "INSERT INTO system_backups (filename, file_size_kb, status) VALUES (%s, 0, 'Pending')",
                 (f"{base_name}.zip",),

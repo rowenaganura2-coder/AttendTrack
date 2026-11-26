@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Copy,
   FileSpreadsheet,
+  FileText,
   ListChecks,
   Loader2,
   Percent,
@@ -519,6 +520,9 @@ function StudentClass({ id }) {
   const { class: cls, stats } = data;
   const total = Number(stats.total_sessions);
   const standing = data.standing;
+  const eligibleExcuses = data.attendance.filter(
+    (entry) => entry.status === "Absent" && !entry.is_active && !entry.excuse_id,
+  ).length;
   const absencesUntilThreshold = total
     ? Math.max(0, Math.floor(Number(stats.present) / 0.75 - total) + 1)
     : null;
@@ -554,6 +558,11 @@ function StudentClass({ id }) {
         title={<span className="capitalize">{cls.subject}</span>}
         subtitle={cls.schedule || undefined}
       >
+        {eligibleExcuses > 0 && (
+          <Link to={`/classes/${id}#excuse-requests`} className="btn btn-gold">
+            <FileText size={16} /> Request absence excuse ({eligibleExcuses})
+          </Link>
+        )}
         {cls.active_session_id && (
           <Link to="/scan" className="btn btn-gold">
             <Radio size={16} /> Session live — scan the QR
@@ -598,7 +607,9 @@ function StudentClass({ id }) {
         </div>
         <div id="excuse-requests" className="card scroll-mt-24 p-6 md:p-8">
           <h2 className="font-display text-2xl font-bold">Excuse requests</h2>
-          <p className="mt-1 text-sm text-muted">Submit an excuse slip for an absent completed session.</p>
+          <p className="mt-1 text-sm text-muted">
+            You can request an excuse for a completed session marked Absent. Include a reason and a PDF, JPG, or PNG document.
+          </p>
           {data.attendance.length === 0 ? (
             <p className="mt-4 rounded-xl border border-dashed border-line p-4 text-sm text-muted">
               There are no completed session records to request an excuse for.
